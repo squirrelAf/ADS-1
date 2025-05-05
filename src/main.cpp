@@ -1,60 +1,69 @@
-// Copyright 2022 NNTU-CS
+import sys # For command lne arguments
+ 
+global stack # Declare stack to keep track of nested indentation style
+global tests # Use this if we everything is correct
+global TAB_WIDTH
 
-#include <cstdint>
-#include "alg.h"
-bool checkPrime(uint64_t value) {
-  if (value < 2) {
-    return false;
-  }
-  for (uint64_t test = 2; test * test <= value; ++test) {
-    if (value % test == 0) {
-      return false;
-    }
-  }
-  return true;
-}
-uint64_t nPrime(uint64_t targetIndex) {
-  uint64_t found = 0;
-  uint64_t current = 1;
-  while (found < targetIndex) {
-    ++current;
-    if (checkPrime(current)) {
-      ++found;
-    }
-  }
-  return current;
-}
-uint64_t nextPrime(uint64_t from) {
-  uint64_t next = from + 1;
+stack = [] # Declare an empty list
+tests = [] # Empty list
+TAB_WIDTH = int(sys.argv[2])
+error = 0
 
-  while (!checkPrime(next)) {
-    ++next;
-  }
-  return next;
-}
-uint64_t sumPrime(uint64_t upperLimit) {
-  uint64_t sum = 0;
+def appendToStack():
+    stack.append(stack[len(stack) - 1] + TAB_WIDTH) # If we are in a nested style, then we need to add another TAB WIDTH (Which is 2 in this case)
 
-  for (uint64_t val = 2; val < upperLimit; ++val) {
-    if (checkPrime(val)) {
-      sum += val;
-    }
-  }
-  return sum;
-}
-uint64_t twinPrimes(uint64_t low, uint64_t high) {
-  uint64_t twin = 0;
-  uint64_t last = 0;
+def checkIndentation(whiteSpace, lNumber):
+    global error
+    match = (whiteSpace == stack[len(stack) - 1])
+    if (match == True):
+        tests.append(True)
+    else:
+        tests.append(False)
+        print ("Incorrect indentation at line %d. You should have %d spaces, but you have %d spaces" % (lNumber, stack[len(stack) - 1], whiteSpace))
+        error = 1
 
-  for (uint64_t i = low; i < high; ++i) {
-    if (checkPrime(i)) {
-      if (last && i - last == 2) {
-        ++twin;
-      }
-      last = i;
-    }
-  }
+def parse(fileObject, startPoint, lineNumber):
+    fileObject.seek(startPoint)
+    lNumber = lineNumber
+    while (stack != []):
 
-  return twin;
-}
+        for l in fileObject:
+            lNumber += 1
+            if (l.find("{") != -1):
+                appendToStack() # Found '{' so push new requirement onto the stack!
+            else: # Check for actual indentation!
+                if (l == '\n'):
+                    continue # Don't care if it is just an empty line
+                if (l.find("}") != -1):
+                    stack.remove(stack[len(stack) - 1]) # Found matching '}' so pop from stack
+                whiteSpace = 0
+                for char in l:
+                    if (char.isspace() == True): #Find trailing whitespaces to match with correct number of spaces
+                        whiteSpace += 1
+                    else:
+                        break
+                checkIndentation(whiteSpace, lNumber) # Check if whitespaces match
+        stack.remove(stack[len(stack) - 1]) # Pop from stack
 
+def main():
+    fo = open(sys.argv[1], "r") # Create file Object to read in cpp file
+    stack.append(0) # No spaces at the beginning!
+    lineNumber = 0 # Keep track of line number to print out errors
+    jumpOffset = 0 # To jump to the first occurence of a {
+    for line in fo: # Initial parse
+        lineNumber += 1
+        jumpOffset += len(line)
+        pos = line.find("{") # Find first occurence of a curly brace because we indent from here!
+        if (pos != -1):
+            appendToStack() # Append
+            break
+    parse(fo, jumpOffset, lineNumber)
+    if (False not in tests):
+        print ("Everything is indented correctly!")
+    print(error)
+    if error == 0:
+        exit(0)
+    else:
+        exit(1)
+
+main()
