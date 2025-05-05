@@ -53,6 +53,5 @@ uint64_t twinPrimes(uint64_t low, uint64_t high) {
       last = i;
     }
   }
-
   return twin;
 }
